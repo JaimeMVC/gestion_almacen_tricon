@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
+import 'screens/carga_masiva_screen.dart';
 import 'screens/despacho_screen.dart';
+import 'screens/exportaciones_screen.dart';
 import 'screens/ingreso_material_screen.dart';
 import 'screens/materiales_screen.dart';
 import 'screens/movimientos_screen.dart';
@@ -49,6 +51,8 @@ class _MainLayoutState extends State<MainLayout> {
     MaterialesScreen(),
     UbicacionesScreen(),
     RemitosScreen(),
+    CargaMasivaScreen(),
+    ExportacionesScreen(),
   ];
 
   final menuItems = const [
@@ -63,6 +67,9 @@ class _MainLayoutState extends State<MainLayout> {
     _MenuEntry.item('Ubicaciones', Icons.location_on, 6),
     _MenuEntry.section('DOCUMENTOS'),
     _MenuEntry.item('Remitos', Icons.receipt_long, 7),
+    _MenuEntry.section('DATOS'),
+    _MenuEntry.item('Carga masiva', Icons.upload_file, 8),
+    _MenuEntry.item('Exportaciones', Icons.file_download, 9),
   ];
 
   @override
@@ -87,53 +94,35 @@ class _MainLayoutState extends State<MainLayout> {
 
   Widget _buildSideMenu() {
     return Container(
-      width: 260,
+      width: 270,
       color: const Color(0xFF111827),
       child: Column(
         children: [
           const SizedBox(height: 24),
           const Icon(Icons.warehouse, size: 46, color: Colors.white),
           const SizedBox(height: 8),
-          const Text(
-            'TRICON WMS',
-            style: TextStyle(color: Colors.white, fontSize: 21, fontWeight: FontWeight.bold),
-          ),
-          const Text(
-            'Warehouse Management System',
-            style: TextStyle(color: Colors.white70, fontSize: 12),
-          ),
-          const SizedBox(height: 24),
+          const Text('TRICON WMS', style: TextStyle(color: Colors.white, fontSize: 21, fontWeight: FontWeight.bold)),
+          const Text('Warehouse Management System', style: TextStyle(color: Colors.white70, fontSize: 12)),
+          const SizedBox(height: 18),
           Expanded(
             child: ListView.builder(
               itemCount: menuItems.length,
               itemBuilder: (context, index) {
                 final entry = menuItems[index];
-
                 if (entry.isSection) {
                   return Padding(
                     padding: const EdgeInsets.fromLTRB(18, 18, 18, 6),
-                    child: Text(
-                      entry.title,
-                      style: const TextStyle(
-                        color: Colors.white54,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1.1,
-                      ),
-                    ),
+                    child: Text(entry.title, style: const TextStyle(color: Colors.white54, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.1)),
                   );
                 }
 
                 final selected = selectedIndex == entry.pageIndex;
-
                 return Material(
                   color: selected ? const Color(0xFF1E3A8A) : Colors.transparent,
                   child: ListTile(
                     leading: Icon(entry.icon, color: Colors.white),
                     title: Text(entry.title, style: const TextStyle(color: Colors.white)),
-                    onTap: () {
-                      setState(() => selectedIndex = entry.pageIndex!);
-                    },
+                    onTap: () => setState(() => selectedIndex = entry.pageIndex!),
                   ),
                 );
               },
@@ -150,14 +139,12 @@ class _MainLayoutState extends State<MainLayout> {
         itemCount: menuItems.length,
         itemBuilder: (context, index) {
           final entry = menuItems[index];
-
           if (entry.isSection) {
             return Padding(
               padding: const EdgeInsets.fromLTRB(16, 18, 16, 6),
               child: Text(entry.title, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
             );
           }
-
           return ListTile(
             leading: Icon(entry.icon),
             title: Text(entry.title),
@@ -199,7 +186,16 @@ class HomePage extends StatelessWidget {
         children: [
           Text('Inicio', style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold)),
           SizedBox(height: 12),
-          Text('Versión v0.3 estable: Materiales, Ubicaciones, Recepción, Stock, Despacho, Movimientos, Remitos y PDF.'),
+          Text('TRICON WMS v0.4 - Carga masiva, exportaciones Excel y flujo operativo web.'),
+          SizedBox(height: 18),
+          Card(
+            child: Padding(
+              padding: EdgeInsets.all(16),
+              child: Text(
+                'Nota: esta versión todavía trabaja con datos en memoria. Sirve para pruebas operativas y validación de formatos. Para uso web real y permanente, el siguiente paso es Supabase/PostgreSQL.',
+              ),
+            ),
+          ),
         ],
       ),
     );

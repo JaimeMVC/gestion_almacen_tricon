@@ -18,15 +18,11 @@ class RemitosScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final remitos = appState.remitos;
-
     return Padding(
       padding: const EdgeInsets.all(24),
       child: Column(
         children: [
-          const Align(
-            alignment: Alignment.centerLeft,
-            child: Text('Remitos', style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold)),
-          ),
+          const Align(alignment: Alignment.centerLeft, child: Text('Remitos', style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold))),
           const SizedBox(height: 18),
           Expanded(
             child: remitos.isEmpty
@@ -47,10 +43,7 @@ class RemitosScreen extends StatelessWidget {
                             'Despachado por: ${r.despachadoPor}'
                             '${r.observacion.isEmpty ? "" : "\nObs: ${r.observacion}"}',
                           ),
-                          trailing: IconButton(
-                            icon: const Icon(Icons.picture_as_pdf),
-                            onPressed: () => RemitoPdf.imprimir(r),
-                          ),
+                          trailing: IconButton(icon: const Icon(Icons.picture_as_pdf), onPressed: () => RemitoPdf.imprimir(r)),
                         ),
                       );
                     },

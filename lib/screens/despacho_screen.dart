@@ -11,9 +11,7 @@ class DespachoScreen extends StatefulWidget {
 
 class _DespachoScreenState extends State<DespachoScreen> {
   final _formKey = GlobalKey<FormState>();
-
   StockItem? stockSeleccionado;
-
   final cantidadController = TextEditingController();
   final destinoController = TextEditingController();
   final despachadoPorController = TextEditingController(text: 'Operador');
@@ -33,6 +31,10 @@ class _DespachoScreenState extends State<DespachoScreen> {
     if (stockSeleccionado == null) return;
 
     final cantidad = int.parse(cantidadController.text.trim());
+    if (cantidad > stockSeleccionado!.cantidad) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No hay stock suficiente para despachar esa cantidad')));
+      return;
+    }
 
     final ok = appState.despacharStock(
       stockItem: stockSeleccionado!,
@@ -43,7 +45,7 @@ class _DespachoScreenState extends State<DespachoScreen> {
     );
 
     if (!ok) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No hay stock suficiente para despachar esa cantidad')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No se pudo realizar el despacho')));
       return;
     }
 
@@ -59,7 +61,6 @@ class _DespachoScreenState extends State<DespachoScreen> {
   @override
   Widget build(BuildContext context) {
     final stock = appState.stock;
-
     return Padding(
       padding: const EdgeInsets.all(24),
       child: ListView(
@@ -77,7 +78,7 @@ class _DespachoScreenState extends State<DespachoScreen> {
                   spacing: 18,
                   children: [
                     SizedBox(
-                      width: 660,
+                      width: 760,
                       child: DropdownButtonFormField<StockItem>(
                         value: stockSeleccionado,
                         decoration: const InputDecoration(labelText: 'Material a despachar', border: OutlineInputBorder(), prefixIcon: Icon(Icons.inventory_2)),

@@ -11,7 +11,6 @@ class MaterialesScreen extends StatefulWidget {
 
 class _MaterialesScreenState extends State<MaterialesScreen> {
   String busqueda = '';
-
   final codigoController = TextEditingController();
   final nombreController = TextEditingController();
   final familiaController = TextEditingController();
@@ -50,64 +49,63 @@ class _MaterialesScreenState extends State<MaterialesScreen> {
 
     showDialog(
       context: context,
-      builder: (_) {
-        return AlertDialog(
-          title: Text(material == null ? 'Nuevo material' : 'Editar material'),
-          content: SizedBox(
-            width: 520,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _campo(codigoController, 'Código de pieza', Icons.qr_code),
-                const SizedBox(height: 12),
-                _campo(nombreController, 'Descripción', Icons.description),
-                const SizedBox(height: 12),
-                _campo(familiaController, 'Familia', Icons.category),
-                const SizedBox(height: 12),
-                _campo(observacionController, 'Observaciones', Icons.notes),
-              ],
-            ),
+      builder: (_) => AlertDialog(
+        title: Text(material == null ? 'Nuevo material' : 'Editar material'),
+        content: SizedBox(
+          width: 520,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _campo(codigoController, 'Código de pieza', Icons.qr_code),
+              const SizedBox(height: 12),
+              _campo(nombreController, 'Descripción', Icons.description),
+              const SizedBox(height: 12),
+              _campo(familiaController, 'Familia', Icons.category),
+              const SizedBox(height: 12),
+              _campo(observacionController, 'Observaciones', Icons.notes),
+            ],
           ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
-            FilledButton.icon(
-              onPressed: () {
-                if (codigoController.text.trim().isEmpty || nombreController.text.trim().isEmpty || familiaController.text.trim().isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Código, descripción y familia son obligatorios')));
-                  return;
-                }
-
-                final nuevo = MaterialItem(
-                  codigo: codigoController.text.trim(),
-                  nombre: nombreController.text.trim(),
-                  familia: familiaController.text.trim(),
-                  observacion: observacionController.text.trim(),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+          FilledButton.icon(
+            onPressed: () {
+              if (codigoController.text.trim().isEmpty ||
+                  nombreController.text.trim().isEmpty ||
+                  familiaController.text.trim().isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Código, descripción y familia son obligatorios')),
                 );
+                return;
+              }
 
-                appState.guardarMaterialMaestro(nuevo, codigoOriginal: material?.codigo);
-                setState(() {});
-                Navigator.pop(context);
-              },
-              icon: const Icon(Icons.save),
-              label: const Text('Guardar'),
-            ),
-          ],
-        );
-      },
+              final nuevo = MaterialItem(
+                codigo: codigoController.text.trim(),
+                nombre: nombreController.text.trim(),
+                familia: familiaController.text.trim(),
+                observacion: observacionController.text.trim(),
+              );
+
+              appState.guardarMaterialMaestro(nuevo, codigoOriginal: material?.codigo);
+              setState(() {});
+              Navigator.pop(context);
+            },
+            icon: const Icon(Icons.save),
+            label: const Text('Guardar'),
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _campo(TextEditingController controller, String label, IconData icon) {
-    return TextField(
-      controller: controller,
-      decoration: InputDecoration(labelText: label, border: const OutlineInputBorder(), prefixIcon: Icon(icon)),
-    );
-  }
+  Widget _campo(TextEditingController controller, String label, IconData icon) => TextField(
+        controller: controller,
+        decoration: InputDecoration(labelText: label, border: const OutlineInputBorder(), prefixIcon: Icon(icon)),
+      );
 
   @override
   Widget build(BuildContext context) {
     final materiales = materialesFiltrados;
-
     return Padding(
       padding: const EdgeInsets.all(24),
       child: Column(

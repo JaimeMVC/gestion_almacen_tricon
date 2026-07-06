@@ -10,8 +10,8 @@ import '../models/ubicacion.dart';
 class AppState extends ChangeNotifier {
   final List<MaterialItem> _materiales = List.from(materialesDemo);
   final List<StockItem> _stock = List.from(stockDemo);
-  final List<Movimiento> _movimientos = [];
   final List<Ubicacion> _ubicaciones = List.from(ubicacionesDemo);
+  final List<Movimiento> _movimientos = [];
   final List<Remito> _remitos = [];
 
   List<MaterialItem> get materiales => List.unmodifiable(_materiales);
@@ -59,6 +59,10 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  bool existeMaterial(String codigo) {
+    return _materiales.any((m) => m.codigo.toLowerCase() == codigo.toLowerCase());
+  }
+
   void guardarUbicacion(Ubicacion ubicacion) {
     final index = _ubicaciones.indexWhere(
       (u) => u.codigo.toLowerCase() == ubicacion.codigo.toLowerCase(),
@@ -73,6 +77,10 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  bool existeUbicacion(String codigo) {
+    return _ubicaciones.any((u) => u.codigo.toLowerCase() == codigo.toLowerCase());
+  }
+
   void ingresarStock({
     required MaterialItem material,
     required String ubicacion,
@@ -80,14 +88,8 @@ class AppState extends ChangeNotifier {
     String usuario = 'Operador',
     String observacion = '',
   }) {
-    final indexMaterial = _materiales.indexWhere(
-      (m) => m.codigo.toLowerCase() == material.codigo.toLowerCase(),
-    );
-
-    final MaterialItem materialFinal =
-        indexMaterial >= 0 ? _materiales[indexMaterial] : material;
-
-    if (indexMaterial < 0) _materiales.add(material);
+    final materialFinal = _obtenerOCrearMaterial(material);
+    _crearUbicacionSiNoExiste(ubicacion);
 
     final indexStock = _stock.indexWhere(
       (s) =>
@@ -163,14 +165,58 @@ class AppState extends ChangeNotifier {
       ),
     );
 
-    if (_stock[index].cantidad <= 0) _stock.removeAt(index);
+    if (_stock[index].cantidad <= 0) {
+      _stock.removeAt(index);
+    }
 
     notifyListeners();
     return true;
   }
 
+  void cargaMasivaMateriales(List<MaterialItem> materiales) {
+    for (final material in materiales) {
+      guardarMaterialMaestro(material);
+    }
+    notifyListeners();
+  }
+
+  void cargaMasivaUbicaciones(List<Ubicacion> ubicaciones) {
+    for (final ubicacion in ubicaciones) {
+      guardarUbicacion(ubicacion);
+    }
+    notifyListeners();
+  }
+
+  void cargaMasivaStock(List<StockItem> items) {
+    for (final item in items) {
+      ingresarStock(
+        material: item.material,
+        ubicacion: item.ubicacion,
+        cantidad: item.cantidad,
+        usuario: 'Carga masiva',
+        observacion: 'Carga masiva desde Excel',
+      );
+    }
+    notifyListeners();
+  }
+
   void registrarMovimiento(Movimiento movimiento) {
     _movimientos.add(movimiento);
+  }
+
+  MaterialItem _obtenerOCrearMaterial(MaterialItem material) {
+    final index = _materiales.indexWhere(
+      (m) => m.codigo.toLowerCase() == material.codigo.toLowerCase(),
+    );
+    if (index >= 0) return _materiales[index];
+    _materiales.add(material);
+    return material;
+  }
+
+  void _crearUbicacionSiNoExiste(String codigo) {
+    if (!existeUbicacion(codigo)) {
+      _ubicaciones.add(Ubicacion(codigo: codigo, descripcion: 'Creada automáticamente'));
+    }
   }
 
   String _generarNumeroRemito() {

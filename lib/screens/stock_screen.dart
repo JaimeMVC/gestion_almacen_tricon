@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/stock_item.dart';
+import '../services/excel_service.dart';
 import '../state/app_state.dart';
 
 class StockScreen extends StatefulWidget {
@@ -46,17 +47,19 @@ class _StockScreenState extends State<StockScreen> {
       padding: const EdgeInsets.all(24),
       child: Column(
         children: [
-          const Align(
-            alignment: Alignment.centerLeft,
-            child: Text('Stock actual', style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold)),
+          Row(
+            children: [
+              const Expanded(child: Text('Stock actual', style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold))),
+              OutlinedButton.icon(
+                onPressed: () => ExcelService.exportarStock(stock),
+                icon: const Icon(Icons.file_download),
+                label: const Text('Exportar Excel'),
+              ),
+            ],
           ),
           const SizedBox(height: 18),
           TextField(
-            decoration: const InputDecoration(
-              labelText: 'Buscar por código, descripción, familia o ubicación',
-              prefixIcon: Icon(Icons.search),
-              border: OutlineInputBorder(),
-            ),
+            decoration: const InputDecoration(labelText: 'Buscar por código, nombre, familia o ubicación', prefixIcon: Icon(Icons.search), border: OutlineInputBorder()),
             onChanged: (value) => setState(() => busqueda = value),
           ),
           const SizedBox(height: 14),

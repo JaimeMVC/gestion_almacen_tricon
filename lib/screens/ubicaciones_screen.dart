@@ -11,7 +11,6 @@ class UbicacionesScreen extends StatefulWidget {
 
 class _UbicacionesScreenState extends State<UbicacionesScreen> {
   String busqueda = '';
-
   final codigoController = TextEditingController();
   final descripcionController = TextEditingController();
 
@@ -40,74 +39,58 @@ class _UbicacionesScreenState extends State<UbicacionesScreen> {
 
     showDialog(
       context: context,
-      builder: (_) {
-        return AlertDialog(
-          title: Text(ubicacion == null ? 'Nueva ubicación' : 'Editar ubicación'),
-          content: SizedBox(
-            width: 520,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _campo(codigoController, 'Código de ubicación', Icons.location_on),
-                const SizedBox(height: 12),
-                _campo(descripcionController, 'Descripción', Icons.description),
-              ],
-            ),
+      builder: (_) => AlertDialog(
+        title: Text(ubicacion == null ? 'Nueva ubicación' : 'Editar ubicación'),
+        content: SizedBox(
+          width: 520,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _campo(codigoController, 'Código de ubicación', Icons.location_on),
+              const SizedBox(height: 12),
+              _campo(descripcionController, 'Descripción', Icons.description),
+            ],
           ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
-            FilledButton.icon(
-              onPressed: () {
-                if (codigoController.text.trim().isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('El código de ubicación es obligatorio')));
-                  return;
-                }
-
-                final nueva = Ubicacion(codigo: codigoController.text.trim(), descripcion: descripcionController.text.trim());
-                appState.guardarUbicacion(nueva);
-                setState(() {});
-                Navigator.pop(context);
-              },
-              icon: const Icon(Icons.save),
-              label: const Text('Guardar'),
-            ),
-          ],
-        );
-      },
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+          FilledButton.icon(
+            onPressed: () {
+              if (codigoController.text.trim().isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('El código de ubicación es obligatorio')));
+                return;
+              }
+              appState.guardarUbicacion(Ubicacion(codigo: codigoController.text.trim(), descripcion: descripcionController.text.trim()));
+              setState(() {});
+              Navigator.pop(context);
+            },
+            icon: const Icon(Icons.save),
+            label: const Text('Guardar'),
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _campo(TextEditingController controller, String label, IconData icon) {
-    return TextField(
-      controller: controller,
-      decoration: InputDecoration(labelText: label, border: const OutlineInputBorder(), prefixIcon: Icon(icon)),
-    );
-  }
+  Widget _campo(TextEditingController controller, String label, IconData icon) => TextField(
+        controller: controller,
+        decoration: InputDecoration(labelText: label, border: const OutlineInputBorder(), prefixIcon: Icon(icon)),
+      );
 
-  int _cantidadMaterialesEnUbicacion(String codigoUbicacion) {
-    return appState.stock.where((s) => s.ubicacion.toLowerCase() == codigoUbicacion.toLowerCase()).length;
-  }
-
-  int _stockTotalEnUbicacion(String codigoUbicacion) {
-    return appState.stock
-        .where((s) => s.ubicacion.toLowerCase() == codigoUbicacion.toLowerCase())
-        .fold<int>(0, (total, s) => total + s.cantidad);
-  }
+  int _cantidadMaterialesEnUbicacion(String codigoUbicacion) => appState.stock.where((s) => s.ubicacion.toLowerCase() == codigoUbicacion.toLowerCase()).length;
+  int _stockTotalEnUbicacion(String codigoUbicacion) => appState.stock.where((s) => s.ubicacion.toLowerCase() == codigoUbicacion.toLowerCase()).fold<int>(0, (total, s) => total + s.cantidad);
 
   @override
   Widget build(BuildContext context) {
     final ubicaciones = ubicacionesFiltradas;
-
     return Padding(
       padding: const EdgeInsets.all(24),
       child: Column(
         children: [
-          Row(
-            children: [
-              const Expanded(child: Text('Ubicaciones', style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold))),
-              FilledButton.icon(onPressed: () => _abrirFormulario(), icon: const Icon(Icons.add), label: const Text('Nueva ubicación')),
-            ],
-          ),
+          Row(children: [
+            const Expanded(child: Text('Ubicaciones', style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold))),
+            FilledButton.icon(onPressed: () => _abrirFormulario(), icon: const Icon(Icons.add), label: const Text('Nueva ubicación')),
+          ]),
           const SizedBox(height: 18),
           TextField(
             decoration: const InputDecoration(labelText: 'Buscar por código o descripción', prefixIcon: Icon(Icons.search), border: OutlineInputBorder()),

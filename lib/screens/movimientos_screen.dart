@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/movimiento.dart';
+import '../services/excel_service.dart';
 import '../state/app_state.dart';
 
 class MovimientosScreen extends StatelessWidget {
@@ -37,9 +38,15 @@ class MovimientosScreen extends StatelessWidget {
       padding: const EdgeInsets.all(24),
       child: Column(
         children: [
-          const Align(
-            alignment: Alignment.centerLeft,
-            child: Text('Movimientos', style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold)),
+          Row(
+            children: [
+              const Expanded(child: Text('Movimientos', style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold))),
+              OutlinedButton.icon(
+                onPressed: () => ExcelService.exportarMovimientos(movimientos),
+                icon: const Icon(Icons.file_download),
+                label: const Text('Exportar Excel'),
+              ),
+            ],
           ),
           const SizedBox(height: 18),
           Expanded(
@@ -57,7 +64,8 @@ class MovimientosScreen extends StatelessWidget {
                           subtitle: Text(
                             'Fecha: ${_formatearFecha(m.fecha)}\n'
                             'Cantidad: ${m.cantidad}\n'
-                            'Origen: ${m.ubicacionOrigen.isEmpty ? "-" : m.ubicacionOrigen} | Destino: ${m.ubicacionDestino.isEmpty ? "-" : m.ubicacionDestino}\n'
+                            'Origen: ${m.ubicacionOrigen.isEmpty ? "-" : m.ubicacionOrigen} | '
+                            'Destino: ${m.ubicacionDestino.isEmpty ? "-" : m.ubicacionDestino}\n'
                             'Usuario: ${m.usuario}'
                             '${m.observacion.isEmpty ? "" : "\nObs: ${m.observacion}"}',
                           ),

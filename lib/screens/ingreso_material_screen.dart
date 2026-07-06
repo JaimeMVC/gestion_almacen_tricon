@@ -13,7 +13,6 @@ class IngresoMaterialScreen extends StatefulWidget {
 
 class _IngresoMaterialScreenState extends State<IngresoMaterialScreen> {
   final _formKey = GlobalKey<FormState>();
-
   MaterialItem? materialSeleccionado;
   Ubicacion? ubicacionSeleccionada;
 
@@ -80,14 +79,8 @@ class _IngresoMaterialScreenState extends State<IngresoMaterialScreen> {
                       width: 660,
                       child: DropdownButtonFormField<MaterialItem>(
                         value: materialSeleccionado,
-                        decoration: const InputDecoration(
-                          labelText: 'Material',
-                          border: OutlineInputBorder(),
-                          prefixIcon: Icon(Icons.inventory_2),
-                        ),
-                        items: materiales.map((m) {
-                          return DropdownMenuItem(value: m, child: Text('${m.codigo} - ${m.nombre} | ${m.familia}'));
-                        }).toList(),
+                        decoration: const InputDecoration(labelText: 'Material', border: OutlineInputBorder(), prefixIcon: Icon(Icons.inventory_2)),
+                        items: materiales.map((m) => DropdownMenuItem(value: m, child: Text('${m.codigo} - ${m.nombre} | ${m.familia}'))).toList(),
                         validator: (value) => value == null ? 'Seleccione un material' : null,
                         onChanged: (value) => setState(() => materialSeleccionado = value),
                       ),
@@ -111,26 +104,17 @@ class _IngresoMaterialScreenState extends State<IngresoMaterialScreen> {
                           ),
                         ),
                       ),
-                    _campoTexto(controller: cantidadController, label: 'Cantidad recibida', icon: Icons.numbers, obligatorio: true, esNumero: true),
                     SizedBox(
                       width: 320,
                       child: DropdownButtonFormField<Ubicacion>(
                         value: ubicacionSeleccionada,
-                        decoration: const InputDecoration(
-                          labelText: 'Ubicación destino',
-                          border: OutlineInputBorder(),
-                          prefixIcon: Icon(Icons.location_on),
-                        ),
-                        items: ubicaciones.map((u) {
-                          return DropdownMenuItem(
-                            value: u,
-                            child: Text(u.descripcion.isEmpty ? u.codigo : '${u.codigo} - ${u.descripcion}'),
-                          );
-                        }).toList(),
+                        decoration: const InputDecoration(labelText: 'Ubicación destino', border: OutlineInputBorder(), prefixIcon: Icon(Icons.location_on)),
+                        items: ubicaciones.map((u) => DropdownMenuItem(value: u, child: Text(u.descripcion.isEmpty ? u.codigo : '${u.codigo} - ${u.descripcion}'))).toList(),
                         validator: (value) => value == null ? 'Seleccione una ubicación' : null,
                         onChanged: (value) => setState(() => ubicacionSeleccionada = value),
                       ),
                     ),
+                    _campoTexto(controller: cantidadController, label: 'Cantidad recibida', icon: Icons.numbers, obligatorio: true, esNumero: true),
                     _campoTexto(controller: usuarioController, label: 'Recibido por', icon: Icons.person, obligatorio: true),
                     SizedBox(
                       width: 660,
@@ -157,13 +141,7 @@ class _IngresoMaterialScreenState extends State<IngresoMaterialScreen> {
     );
   }
 
-  Widget _campoTexto({
-    required TextEditingController controller,
-    required String label,
-    required IconData icon,
-    bool obligatorio = false,
-    bool esNumero = false,
-  }) {
+  Widget _campoTexto({required TextEditingController controller, required String label, required IconData icon, bool obligatorio = false, bool esNumero = false}) {
     return SizedBox(
       width: 320,
       child: TextFormField(

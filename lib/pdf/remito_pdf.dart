@@ -70,30 +70,20 @@ class RemitoPdf {
     await Printing.layoutPdf(onLayout: (format) async => pdf.save());
   }
 
-  static pw.TableRow _fila(String titulo, String valor) {
-    return pw.TableRow(children: [_celdaHeader(titulo), _celda(valor)]);
-  }
+  static pw.TableRow _fila(String titulo, String valor) => pw.TableRow(children: [_celdaHeader(titulo), _celda(valor)]);
 
-  static pw.Widget _celdaHeader(String texto) {
-    return pw.Padding(
-      padding: const pw.EdgeInsets.all(8),
-      child: pw.Text(texto, style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
-    );
-  }
+  static pw.Widget _celdaHeader(String texto) => pw.Padding(
+        padding: const pw.EdgeInsets.all(8),
+        child: pw.Text(texto, style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+      );
 
-  static pw.Widget _celda(String texto) {
-    return pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Text(texto));
-  }
+  static pw.Widget _celda(String texto) => pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Text(texto));
 
-  static pw.Widget _firma(String titulo) {
-    return pw.Column(
-      children: [
+  static pw.Widget _firma(String titulo) => pw.Column(children: [
         pw.Container(width: 180, height: 1, color: PdfColors.black),
         pw.SizedBox(height: 6),
         pw.Text(titulo),
-      ],
-    );
-  }
+      ]);
 
   static String _formatearFecha(DateTime fecha) {
     final dia = fecha.day.toString().padLeft(2, '0');

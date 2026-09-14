@@ -86,7 +86,7 @@ class _MaterialesScreenState extends State<MaterialesScreen> {
                 observacion: observacionController.text.trim(),
               );
 
-              appState.guardarMaterialMaestro(nuevo, codigoOriginal: material?.codigo);
+              appState.guardarMaterialEnSupabase(nuevo);
               setState(() {});
               Navigator.pop(context);
             },

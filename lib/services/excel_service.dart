@@ -4,12 +4,13 @@
 // excel: ^2.1.0
 // file_picker: ^8.1.2
 
+import 'dart:async';
 import 'dart:html' as html;
 import 'dart:typed_data';
 
 import 'package:excel/excel.dart';
-import 'package:file_picker/file_picker.dart';
 
+import '../models/equipo.dart';
 import '../models/material_item.dart';
 import '../models/movimiento.dart';
 import '../models/stock_item.dart';
@@ -31,6 +32,93 @@ class ImportPreview<T> {
 }
 
 class ExcelService {
+  static Future<ImportPreview<Equipo>?> previsualizarEquipos() async {
+    final picked = await _seleccionarExcel();
+    if (picked == null) return null;
+
+    final excel = Excel.decodeBytes(picked.bytes);
+    final sheet = excel.tables['Equipos'] ?? _primeraHoja(excel);
+    if (sheet == null || sheet.rows.isEmpty) {
+      return ImportPreview(
+        archivo: picked.name,
+        registrosValidos: const [],
+        errores: const ['El archivo no tiene una hoja con datos.'],
+      );
+    }
+
+    // Busca los encabezados por nombre para admitir tanto la plantilla TRICON
+    // como el archivo maestro de flota existente.
+    final headers = <String, int>{};
+    for (var i = 0; i < sheet.rows.first.length; i++) {
+      final key = _normalizarEncabezado(_cell(sheet.rows.first, i));
+      if (key.isNotEmpty) headers[key] = i;
+    }
+
+    int? col(List<String> aliases) {
+      for (final alias in aliases) {
+        final index = headers[_normalizarEncabezado(alias)];
+        if (index != null) return index;
+      }
+      return null;
+    }
+
+    final codigoCol = col(['codigo', 'código']);
+    final descripcionCol = col(['descripcion del activo', 'descripción del activo', 'descripcion', 'descripción']);
+    final marcaCol = col(['marca']);
+    final categoriaCol = col(['categoria', 'categoría']);
+    final capacidadCol = col(['capacidad']);
+
+    if (codigoCol == null || descripcionCol == null) {
+      return ImportPreview(
+        archivo: picked.name,
+        registrosValidos: const [],
+        errores: const [
+          'No se encontraron las columnas obligatorias Código y Descripción del activo.',
+        ],
+      );
+    }
+
+    final equipos = <Equipo>[];
+    final errores = <String>[];
+    final codigos = <String>{};
+
+    for (var i = 1; i < sheet.rows.length; i++) {
+      final row = sheet.rows[i];
+      final fila = i + 1;
+      final codigo = _cell(row, codigoCol);
+      final descripcion = _cell(row, descripcionCol);
+      final marca = marcaCol == null ? '' : _cell(row, marcaCol);
+      final categoria = categoriaCol == null ? '' : _cell(row, categoriaCol);
+      final capacidad = capacidadCol == null ? '' : _cell(row, capacidadCol);
+
+      if (codigo.isEmpty && descripcion.isEmpty && marca.isEmpty && categoria.isEmpty && capacidad.isEmpty) continue;
+      if (codigo.isEmpty || descripcion.isEmpty) {
+        errores.add('Fila $fila: código y descripción del activo son obligatorios.');
+        continue;
+      }
+
+      final key = codigo.toLowerCase();
+      if (!codigos.add(key)) {
+        errores.add('Fila $fila: código duplicado dentro del archivo, omitido: $codigo.');
+        continue;
+      }
+
+      equipos.add(Equipo(
+        codigo: codigo,
+        descripcion: descripcion,
+        marca: marca,
+        categoria: categoria,
+        capacidad: capacidad,
+      ));
+    }
+
+    return ImportPreview(
+      archivo: picked.name,
+      registrosValidos: equipos,
+      errores: errores,
+    );
+  }
+
   static Future<ImportPreview<MaterialItem>?> previsualizarMateriales() async {
     final picked = await _seleccionarExcel();
     if (picked == null) return null;
@@ -166,6 +254,15 @@ class ExcelService {
     return ImportPreview(archivo: picked.name, registrosValidos: stock, errores: errores);
   }
 
+  static void descargarPlantillaEquipos() {
+    final excel = Excel.createExcel();
+    final sheet = excel['Equipos'];
+    excel.setDefaultSheet('Equipos');
+    sheet.appendRow(['Codigo', 'Descripcion del activo', 'MARCA', 'Categoria', 'Capacidad']);
+    sheet.appendRow(['01-EX', 'Excavadora 336 DL', 'Caterpillar', 'Equipo Pesado', '']);
+    _descargarExcel(excel, 'plantilla_equipos_tricon_wms.xlsx');
+  }
+
   static void descargarPlantillaMateriales() {
     final excel = Excel.createExcel();
     final sheet = excel['Materiales'];
@@ -197,10 +294,34 @@ class ExcelService {
     final excel = Excel.createExcel();
     final sheet = excel['Stock'];
     excel.setDefaultSheet('Stock');
-    sheet.appendRow(['codigo', 'descripcion', 'familia', 'ubicacion', 'cantidad']);
+    sheet.appendRow([
+      'codigo',
+      'descripcion',
+      'familia',
+      'almacen_codigo',
+      'almacen_nombre',
+      'proyecto',
+      'ubicacion',
+      'cantidad',
+      'costo_promedio',
+      'moneda',
+      'valor_total',
+    ]);
 
     for (final s in stock) {
-      sheet.appendRow([s.material.codigo, s.material.nombre, s.material.familia, s.ubicacion, s.cantidad]);
+      sheet.appendRow([
+        s.material.codigo,
+        s.material.nombre,
+        s.material.familia,
+        s.almacenCodigo,
+        s.almacenNombre,
+        s.proyecto,
+        s.ubicacion,
+        s.cantidad,
+        s.costoPromedio,
+        s.moneda,
+        s.valorTotal,
+      ]);
     }
 
     _descargarExcel(excel, 'stock_tricon_wms.xlsx');
@@ -210,10 +331,24 @@ class ExcelService {
     final excel = Excel.createExcel();
     final sheet = excel['Movimientos'];
     excel.setDefaultSheet('Movimientos');
-    sheet.appendRow(['fecha', 'tipo', 'codigo', 'descripcion', 'cantidad', 'ubicacion_origen', 'ubicacion_destino', 'usuario', 'observacion']);
+    sheet.appendRow([
+      'fecha', 'tipo', 'material_codigo', 'material_descripcion', 'familia',
+      'cantidad', 'almacen_origen', 'ubicacion_origen', 'almacen_destino',
+      'ubicacion_destino', 'proveedor', 'region', 'pais', 'costo_unitario',
+      'moneda', 'valor_total', 'orden_compra', 'factura', 'fecha_compra',
+      'destino_proyecto', 'responsable', 'remito', 'observacion'
+    ]);
 
     for (final m in movimientos) {
-      sheet.appendRow([_fecha(m.fecha), m.tipo, m.codigoMaterial, m.nombreMaterial, m.cantidad, m.ubicacionOrigen, m.ubicacionDestino, m.usuario, m.observacion]);
+      sheet.appendRow([
+        _fecha(m.fecha), m.tipo, m.codigoMaterial, m.nombreMaterial, m.familia,
+        m.cantidad, m.almacenOrigenNombre, m.ubicacionOrigen,
+        m.almacenDestinoNombre, m.ubicacionDestino, m.proveedorNombre,
+        m.regionNombre, m.regionPais, m.costoUnitario, m.moneda, m.valorTotal,
+        m.ordenCompra, m.factura,
+        m.fechaCompra == null ? '' : _fecha(m.fechaCompra!),
+        m.destinoExterno, m.usuario, m.remitoNumero, m.observacion
+      ]);
     }
 
     _descargarExcel(excel, 'movimientos_tricon_wms.xlsx');
@@ -246,22 +381,66 @@ class ExcelService {
   }
 
   static Future<_PickedExcel?> _seleccionarExcel() async {
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['xlsx'],
-      withData: true,
-    );
+    // En Flutter Web usamos directamente el selector nativo del navegador.
+    // FilePicker puede devolver null en algunos navegadores aunque el usuario
+    // haya intentado seleccionar un archivo, lo que se mostraba como
+    // "Operación cancelada".
+    final input = html.FileUploadInputElement()
+      ..accept = '.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      ..multiple = false;
 
-    if (result == null || result.files.isEmpty) return null;
-    final file = result.files.single;
-    final bytes = file.bytes;
-    if (bytes == null) return null;
-    return _PickedExcel(name: file.name, bytes: bytes);
+    final completer = Completer<_PickedExcel?>();
+
+    input.onChange.first.then((_) {
+      final files = input.files;
+      if (files == null || files.isEmpty) {
+        if (!completer.isCompleted) completer.complete(null);
+        return;
+      }
+
+      final file = files.first;
+      final reader = html.FileReader();
+
+      reader.onError.first.then((_) {
+        if (!completer.isCompleted) {
+          completer.completeError(StateError('No se pudo leer el archivo seleccionado.'));
+        }
+      });
+
+      reader.onLoadEnd.first.then((_) {
+        if (completer.isCompleted) return;
+        final result = reader.result;
+        if (result is ByteBuffer) {
+          completer.complete(_PickedExcel(name: file.name, bytes: Uint8List.view(result)));
+        } else if (result is Uint8List) {
+          completer.complete(_PickedExcel(name: file.name, bytes: result));
+        } else {
+          completer.completeError(StateError('El navegador no devolvió datos válidos del archivo.'));
+        }
+      });
+
+      reader.readAsArrayBuffer(file);
+    });
+
+    input.click();
+    return completer.future;
   }
 
   static Sheet? _primeraHoja(Excel excel) {
     if (excel.tables.isEmpty) return null;
     return excel.tables[excel.tables.keys.first];
+  }
+
+  static String _normalizarEncabezado(String value) {
+    return value
+        .trim()
+        .toLowerCase()
+        .replaceAll('á', 'a')
+        .replaceAll('é', 'e')
+        .replaceAll('í', 'i')
+        .replaceAll('ó', 'o')
+        .replaceAll('ú', 'u')
+        .replaceAll(RegExp(r'\s+'), ' ');
   }
 
   static String _cell(List<Data?> row, int index) {

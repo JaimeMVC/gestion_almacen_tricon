@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../models/equipo.dart';
 import '../models/material_item.dart';
 import '../models/stock_item.dart';
 import '../models/ubicacion.dart';
@@ -15,9 +16,34 @@ class CargaMasivaScreen extends StatefulWidget {
 
 class _CargaMasivaScreenState extends State<CargaMasivaScreen> {
   bool cargando = false;
+  ImportPreview<Equipo>? previewEquipos;
   ImportPreview<MaterialItem>? previewMateriales;
   ImportPreview<Ubicacion>? previewUbicaciones;
   ImportPreview<StockItem>? previewStock;
+
+  Future<void> _previsualizarEquipos() async {
+    await _ejecutar(() async {
+      final preview = await ExcelService.previsualizarEquipos();
+      if (preview == null) return 'Operación cancelada';
+
+      final existentes = appState.equipos.map((e) => e.codigo.trim().toLowerCase()).toSet();
+      final nuevos = preview.registrosValidos
+          .where((e) => !existentes.contains(e.codigo.trim().toLowerCase()))
+          .toList(growable: false);
+      final omitidos = preview.registrosValidos.length - nuevos.length;
+      final errores = List<String>.from(preview.errores);
+      if (omitidos > 0) {
+        errores.add('$omitidos equipo(s) ya existen en TRICON y serán omitidos.');
+      }
+
+      setState(() => previewEquipos = ImportPreview(
+            archivo: preview.archivo,
+            registrosValidos: nuevos,
+            errores: errores,
+          ));
+      return 'Archivo leído: ${preview.archivo}';
+    });
+  }
 
   Future<void> _previsualizarMateriales() async {
     await _ejecutar(() async {
@@ -60,7 +86,18 @@ class _CargaMasivaScreenState extends State<CargaMasivaScreen> {
     }
   }
 
-  void _confirmarMateriales() {
+  Future<void> _confirmarEquipos() async {
+    final preview = previewEquipos;
+    if (preview == null) return;
+    await _ejecutar(() async {
+      final importados = await appState.cargaMasivaEquipos(preview.registrosValidos);
+      if (!mounted) return 'Equipos importados: $importados';
+      setState(() => previewEquipos = null);
+      return 'Equipos importados correctamente: $importados';
+    });
+  }
+
+  Future<void> _confirmarMateriales() async {
     final preview = previewMateriales;
     if (preview == null) return;
     appState.cargaMasivaMateriales(preview.registrosValidos);
@@ -68,7 +105,7 @@ class _CargaMasivaScreenState extends State<CargaMasivaScreen> {
     _mensaje('Materiales importados: ${preview.cantidadValida}');
   }
 
-  void _confirmarUbicaciones() {
+  Future<void> _confirmarUbicaciones() async {
     final preview = previewUbicaciones;
     if (preview == null) return;
     appState.cargaMasivaUbicaciones(preview.registrosValidos);
@@ -76,7 +113,7 @@ class _CargaMasivaScreenState extends State<CargaMasivaScreen> {
     _mensaje('Ubicaciones importadas: ${preview.cantidadValida}');
   }
 
-  void _confirmarStock() {
+  Future<void> _confirmarStock() async {
     final preview = previewStock;
     if (preview == null) return;
     appState.cargaMasivaStock(preview.registrosValidos);
@@ -100,6 +137,16 @@ class _CargaMasivaScreenState extends State<CargaMasivaScreen> {
           const SizedBox(height: 22),
           if (cargando) const LinearProgressIndicator(),
           const SizedBox(height: 12),
+          _ImportCard<Equipo>(
+            title: 'Equipos / Activos',
+            description: 'Admite tu maestro de flota. Columnas: Codigo, Descripcion del activo, MARCA, Categoria, Capacidad. La columna N° se ignora.',
+            icon: Icons.precision_manufacturing,
+            preview: previewEquipos,
+            onDownload: ExcelService.descargarPlantillaEquipos,
+            onPreview: _previsualizarEquipos,
+            onConfirm: _confirmarEquipos,
+            onCancel: () => setState(() => previewEquipos = null),
+          ),
           _ImportCard<MaterialItem>(
             title: 'Materiales',
             description: 'Columnas esperadas: codigo, descripcion, familia, observacion.',
@@ -130,15 +177,6 @@ class _CargaMasivaScreenState extends State<CargaMasivaScreen> {
             onConfirm: _confirmarStock,
             onCancel: () => setState(() => previewStock = null),
           ),
-          const SizedBox(height: 16),
-          const Card(
-            child: Padding(
-              padding: EdgeInsets.all(16),
-              child: Text(
-                'Importante: esta versión todavía guarda los datos en memoria. Sirve para probar el flujo web y validar formatos. Para uso real permanente, el próximo paso es conectar Supabase/PostgreSQL.',
-              ),
-            ),
-          ),
         ],
       ),
     );
@@ -152,7 +190,7 @@ class _ImportCard<T> extends StatelessWidget {
   final ImportPreview<T>? preview;
   final VoidCallback onDownload;
   final VoidCallback onPreview;
-  final VoidCallback onConfirm;
+  final Future<void> Function() onConfirm;
   final VoidCallback onCancel;
 
   const _ImportCard({

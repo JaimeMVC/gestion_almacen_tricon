@@ -3,7 +3,7 @@ class Remito {
   final DateTime fecha;
   final String codigoMaterial;
   final String nombreMaterial;
-  final int cantidad;
+  final num cantidad;
   final String ubicacionOrigen;
   final String destino;
   final String despachadoPor;

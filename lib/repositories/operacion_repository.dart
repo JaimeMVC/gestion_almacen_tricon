@@ -58,6 +58,22 @@ class OperacionRepository {
         observacion: observacion,
       );
 
+  Future<String> registrarSalidaConsumoMultiple({
+    required String almacenOrigenId,
+    required List<Map<String, dynamic>> items,
+    required String destinoExterno,
+    String? equipoId,
+    String usuario = '',
+    String observacion = '',
+  }) => _service.registrarSalidaConsumoMultiple(
+    almacenOrigenId: almacenOrigenId,
+    items: items,
+    destinoExterno: destinoExterno,
+    equipoId: equipoId,
+    usuario: usuario,
+    observacion: observacion,
+  );
+
   Future<String> registrarSalidaConsumo({
     required String materialId,
     required String almacenOrigenId,

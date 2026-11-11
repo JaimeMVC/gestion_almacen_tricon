@@ -349,6 +349,25 @@ class SupabaseService {
     return response?.toString() ?? '';
   }
 
+  Future<String> registrarSalidaConsumoMultiple({
+    required String almacenOrigenId,
+    required List<Map<String, dynamic>> items,
+    required String destinoExterno,
+    String? equipoId,
+    String usuario = '',
+    String observacion = '',
+  }) async {
+    final response = await _client.rpc('registrar_salida_consumo_multiple', params: {
+      'p_almacen_origen_id': almacenOrigenId,
+      'p_items': items,
+      'p_destino_externo': destinoExterno.trim(),
+      'p_equipo_id': equipoId,
+      'p_usuario': usuario.trim(),
+      'p_observacion': observacion.trim(),
+    });
+    return response?.toString() ?? '';
+  }
+
   Future<List<Movimiento>> obtenerMovimientos() async {
     final response = await _client
         .from('vista_movimientos_detallados')

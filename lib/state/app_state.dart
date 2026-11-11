@@ -721,6 +721,44 @@ class AppState extends ChangeNotifier {
   }
 
 
+  Future<String> registrarSalidaConsumoMultipleEnSupabase({
+    required List<Map<String, dynamic>> items,
+    required String almacenOrigenId,
+    required String destinoExterno,
+    String? equipoId,
+    String usuario = '',
+    String observacion = '',
+  }) async {
+    if (_registrandoDespacho) throw StateError('Ya hay un despacho en curso.');
+    if (items.isEmpty) throw ArgumentError('Agregue al menos un material.');
+    if (almacenOrigenId.isEmpty) throw ArgumentError('Seleccione un almacén.');
+    if (equipoId == null && destinoExterno.trim().isEmpty) {
+      throw ArgumentError('Seleccione un equipo o indique el destino.');
+    }
+    _registrandoDespacho = true;
+    _errorDespacho = null;
+    notifyListeners();
+    try {
+      final remitoId = await operacionRepository.registrarSalidaConsumoMultiple(
+        almacenOrigenId: almacenOrigenId,
+        items: items,
+        destinoExterno: destinoExterno,
+        equipoId: equipoId,
+        usuario: usuario,
+        observacion: observacion,
+      );
+      await cargarStockDesdeSupabase();
+      await cargarMovimientosDesdeSupabase();
+      return remitoId;
+    } catch (error) {
+      _errorDespacho = 'No se pudo registrar el despacho: $error';
+      rethrow;
+    } finally {
+      _registrandoDespacho = false;
+      notifyListeners();
+    }
+  }
+
   Future<String> registrarSalidaConsumoEnSupabase({
     required StockItem stockOrigen,
     required num cantidad,

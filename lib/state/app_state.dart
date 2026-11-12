@@ -748,7 +748,7 @@ class AppState extends ChangeNotifier {
         observacion: observacion,
       );
       await cargarStockDesdeSupabase();
-      await cargarMovimientosDesdeSupabase();
+      // El historial se consulta por páginas al entrar en Movimientos.
       return remitoId;
     } catch (error) {
       _errorDespacho = 'No se pudo registrar el despacho: $error';

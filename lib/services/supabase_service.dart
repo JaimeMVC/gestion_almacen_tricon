@@ -368,6 +368,64 @@ class SupabaseService {
     return response?.toString() ?? '';
   }
 
+  /// Página filtrada en PostgreSQL: no descarga el historial completo.
+  Future<PaginaMovimientos> obtenerPaginaMovimientos({
+    required int pagina,
+    required int tamanoPagina,
+    String buscar = '',
+    String almacenId = '',
+    String proveedorId = '',
+    String tipo = '',
+    DateTime? desde,
+    DateTime? hasta,
+  }) async {
+    if (pagina < 0 || tamanoPagina < 1) {
+      throw ArgumentError('Página o tamaño de página inválidos');
+    }
+    var consulta = _client.from('vista_movimientos_detallados')
+        .select('*');
+    if (almacenId.isNotEmpty) {
+      consulta = consulta.or('almacen_origen_id.eq.$almacenId,almacen_destino_id.eq.$almacenId');
+    }
+    if (proveedorId.isNotEmpty) consulta = consulta.eq('proveedor_id', proveedorId);
+    if (tipo.isNotEmpty) consulta = consulta.eq('tipo', tipo);
+    if (desde != null) {
+      final inicio = DateTime(desde.year, desde.month, desde.day).toUtc();
+      consulta = consulta.gte('fecha', inicio.toIso8601String());
+    }
+    if (hasta != null) {
+      final finExclusivo = DateTime(hasta.year, hasta.month, hasta.day + 1).toUtc();
+      consulta = consulta.lt('fecha', finExclusivo.toIso8601String());
+    }
+    // Limitar caracteres especiales evita alterar la sintaxis del filtro PostgREST.
+    final termino = buscar.trim().replaceAll(RegExp(r'[^a-zA-Z0-9À-ÿ _-]'), ' ').trim();
+    if (termino.isNotEmpty) {
+      final patron = '*${termino.replaceAll(RegExp(r'\s+'), '*')}*';
+      consulta = consulta.or([
+        'material_codigo.ilike.$patron',
+        'material_nombre.ilike.$patron',
+        'usuario.ilike.$patron',
+        'remito_numero.ilike.$patron',
+        'factura.ilike.$patron',
+        'orden_compra.ilike.$patron',
+        'destino_externo.ilike.$patron',
+      ].join(','));
+    }
+    final desdeFila = pagina * tamanoPagina;
+    final respuesta = await consulta
+        .order('fecha', ascending: false)
+        .order('id', ascending: false)
+        .range(desdeFila, desdeFila + tamanoPagina);
+    final haySiguiente = respuesta.length > tamanoPagina;
+    final filas = respuesta.take(tamanoPagina);
+    return PaginaMovimientos(
+      movimientos: filas.map<Movimiento>((fila) =>
+          Movimiento.fromMap(Map<String, dynamic>.from(fila))).toList(),
+      total: desdeFila + respuesta.length,
+      haySiguiente: haySiguiente,
+    );
+  }
+
   Future<List<Movimiento>> obtenerMovimientos() async {
     final response = await _client
         .from('vista_movimientos_detallados')
@@ -420,3 +478,10 @@ class SupabaseService {
 }
 
 final supabaseService = SupabaseService();
+/// Resultado paginado. El total es un mínimo conocido, no un conteo global.
+class PaginaMovimientos {
+  final List<Movimiento> movimientos;
+  final int total;
+  final bool haySiguiente;
+  const PaginaMovimientos({required this.movimientos, required this.total, required this.haySiguiente});
+}

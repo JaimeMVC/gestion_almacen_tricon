@@ -79,6 +79,93 @@ class _IngresoMaterialScreenState extends State<IngresoMaterialScreen> {
     return '$dia/$mes/${fecha.year}';
   }
 
+  Future<void> _buscarYSeleccionarMaterial() async {
+    final busqueda = TextEditingController();
+    final seleccionado = await showDialog<MaterialItem>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, actualizarDialogo) {
+          final texto = busqueda.text.trim().toLowerCase();
+          final resultados = appState.materiales.where((material) {
+            final contenido =
+                '${material.codigo} ${material.nombre} ${material.familia}'
+                    .toLowerCase();
+            return contenido.contains(texto);
+          }).toList(growable: false);
+
+          return Dialog(
+            insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 620, maxHeight: 650),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      children: [
+                        const Expanded(
+                          child: Text('Buscar material',
+                              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                        ),
+                        IconButton(
+                          tooltip: 'Cerrar',
+                          onPressed: () => Navigator.of(dialogContext).pop(),
+                          icon: const Icon(Icons.close),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: busqueda,
+                      autofocus: true,
+                      textInputAction: TextInputAction.search,
+                      decoration: const InputDecoration(
+                        hintText: 'Escribí código, descripción o familia',
+                        prefixIcon: Icon(Icons.search),
+                        border: OutlineInputBorder(),
+                      ),
+                      onChanged: (_) => actualizarDialogo(() {}),
+                    ),
+                    const SizedBox(height: 8),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text('${resultados.length} materiales encontrados'),
+                    ),
+                    const SizedBox(height: 8),
+                    Flexible(
+                      child: resultados.isEmpty
+                          ? const Center(child: Text('No se encontraron materiales'))
+                          : ListView.separated(
+                              shrinkWrap: true,
+                              itemCount: resultados.length,
+                              separatorBuilder: (_, _) => const Divider(height: 1),
+                              itemBuilder: (context, index) {
+                                final material = resultados[index];
+                                return ListTile(
+                                  title: Text(material.codigo,
+                                      style: const TextStyle(fontWeight: FontWeight.w600)),
+                                  subtitle: Text('${material.nombre} | ${material.familia}'),
+                                  onTap: () => Navigator.of(dialogContext).pop(material),
+                                );
+                              },
+                            ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+    busqueda.dispose();
+    if (seleccionado != null && mounted) {
+      setState(() => _material = seleccionado);
+      _formKey.currentState?.validate();
+    }
+  }
+
   Future<void> _registrar() async {
     if (!_formKey.currentState!.validate()) return;
     if (_almacen == null || _ubicacion == null || _material == null) return;
@@ -280,31 +367,34 @@ class _IngresoMaterialScreenState extends State<IngresoMaterialScreen> {
                             children: [
                               _campo(
                                 width: 560,
-                                child: DropdownButtonFormField<MaterialItem>(
-                                  isExpanded: true,
-                                  value: _material,
-
-                                  decoration: const InputDecoration(
-                                    labelText: 'Material *',
-                                    border: OutlineInputBorder(),
-                                    prefixIcon: Icon(Icons.inventory_2),
-                                  ),
-                                  items: appState.materiales
-                                      .map(
-                                        (m) => DropdownMenuItem(
-                                          value: m,
-                                          child: Text(
-                                            '${m.codigo} - ${m.nombre} | ${m.familia}',
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                        ),
-                                      )
-                                      .toList(),
-                                  validator: (value) => value == null
+                                child: FormField<MaterialItem>(
+                                  validator: (_) => _material == null
                                       ? 'Seleccione un material'
                                       : null,
-                                  onChanged: (value) =>
-                                      setState(() => _material = value),
+                                  builder: (campo) => InkWell(
+                                    onTap: _buscarYSeleccionarMaterial,
+                                    child: InputDecorator(
+                                      decoration: InputDecoration(
+                                        labelText: 'Material *',
+                                        border: const OutlineInputBorder(),
+                                        prefixIcon: const Icon(Icons.inventory_2),
+                                        suffixIcon: const Icon(Icons.search),
+                                        errorText: campo.errorText,
+                                      ),
+                                      child: Text(
+                                        _material == null
+                                            ? 'Tocá para buscar por código o descripción'
+                                            : '${_material!.codigo} - ${_material!.nombre} | ${_material!.familia}',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          color: _material == null
+                                              ? Theme.of(context).hintColor
+                                              : null,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
                                 ),
                               ),
                               _campo(

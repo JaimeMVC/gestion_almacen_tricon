@@ -1,3 +1,8 @@
+import 'dart:math';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '../state/auth_state.dart';
+import '../services/supabase_service.dart';
+import '../pdf/documento_pdf.dart';
 import 'package:flutter/material.dart';
 
 import '../models/almacen.dart';
@@ -16,6 +21,21 @@ class IngresoMaterialScreen extends StatefulWidget {
 
 class _IngresoMaterialScreenState extends State<IngresoMaterialScreen> {
   final _formKey = GlobalKey<FormState>();
+
+  bool _transito = false;
+  bool _procesandoTransito = false;
+  String? _solicitudTransito;
+  Map<String, dynamic>? _datosPendientes;
+  final _destinoTransito = TextEditingController();
+
+  String _nuevoId() {
+    final random = Random.secure();
+    final bytes = List<int>.generate(16, (_) => random.nextInt(256));
+    bytes[6] = (bytes[6] & 15) | 64;
+    bytes[8] = (bytes[8] & 63) | 128;
+    final h = bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+    return '${h.substring(0,8)}-${h.substring(8,12)}-${h.substring(12,16)}-${h.substring(16,20)}-${h.substring(20)}';
+  }
 
   Almacen? _almacen;
   Ubicacion? _ubicacion;
@@ -42,6 +62,7 @@ class _IngresoMaterialScreenState extends State<IngresoMaterialScreen> {
 
   @override
   void dispose() {
+    _destinoTransito.dispose();
     _cantidad.dispose();
     _costo.dispose();
     _ordenCompra.dispose();
@@ -58,7 +79,7 @@ class _IngresoMaterialScreenState extends State<IngresoMaterialScreen> {
   List<Ubicacion> _ubicacionesDisponibles() {
     if (_almacen == null) return const [];
     return appState.ubicaciones
-        .where((u) => u.activa && u.almacenId == _almacen!.id)
+        .where((u) => u.activa && u.almacenId == _almacen!.id && u.codigo != 'TRANSITO')
         .toList(growable: false);
   }
 
@@ -166,7 +187,61 @@ class _IngresoMaterialScreenState extends State<IngresoMaterialScreen> {
     }
   }
 
+  Future<void> _registrarTransito() async {
+    if (!sessionState.puede('recepcionar') || !sessionState.puede('despachar')) return;
+    if (_datosPendientes == null) {
+      if (!_formKey.currentState!.validate() || _almacen == null || _material == null) return;
+      _datosPendientes = {
+        'almacen_id': _almacen!.id, 'material_id': _material!.id,
+        'cantidad': _parseNumero(_cantidad.text), 'costo_unitario': _parseNumero(_costo.text),
+        'moneda': _moneda, 'proveedor_id': _proveedor?.id, 'region_id': _region?.id,
+        'orden_compra': _ordenCompra.text, 'factura': _factura.text,
+        'fecha_compra': _fechaCompra?.toIso8601String().split('T').first,
+        'usuario': _usuario.text, 'observacion': _observacion.text,
+        'destino': _destinoTransito.text.trim(),
+      };
+      _solicitudTransito = _nuevoId();
+    }
+    setState(() => _procesandoTransito = true);
+    String? remito;
+    try {
+      final resultado = await Supabase.instance.client.rpc('registrar_transito_directo', params: {
+        'p_id': _solicitudTransito, 'p_datos': _datosPendientes,
+      });
+      remito = resultado.toString();
+    } catch (error) {
+      if (!mounted) return;
+      // Un error SQL confirmado revierte toda la transacción; un error de red puede ser ambiguo.
+      if (error is PostgrestException && RegExp(r'^[0-9A-Z]{5}$').hasMatch(error.code ?? '') && !(error.code ?? '').startsWith('08')) {
+        _datosPendientes = null;
+        _solicitudTransito = null;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Tránsito no confirmado: $error. Si hay una solicitud pendiente, reintente sin cambiar los datos.')));
+    } finally {
+      if (mounted) setState(() => _procesandoTransito = false);
+    }
+    if (!mounted || remito == null) return;
+    setState(() {
+      _datosPendientes = null; _solicitudTransito = null;
+      _transito = false; _material = null; _proveedor = null; _region = null; _fechaCompra = null;
+      _cantidad.clear(); _costo.text = '0'; _ordenCompra.clear(); _factura.clear(); _observacion.clear(); _destinoTransito.clear();
+    });
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Recepción y despacho registrados. Remito emitido.')));
+    if (!sessionState.puede('imprimir_remitos')) return;
+    final imprimir = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
+      title: const Text('Tránsito registrado'), content: const Text('¿Desea imprimir el remito de salida?'),
+      actions: [TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cerrar')),
+        FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Imprimir'))],
+    ));
+    if (imprimir == true && mounted) {
+      try { await DocumentoPdf.imprimir(await supabaseService.obtenerDocumentoPorId(remito)); }
+      catch (error) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Remito registrado. Consulte Remitos para imprimir: $error'))); }
+    }
+  }
+
   Future<void> _registrar() async {
+    if (_procesandoTransito) return;
+    if (_transito) { await _registrarTransito(); return; }
     if (!_formKey.currentState!.validate()) return;
     if (_almacen == null || _ubicacion == null || _material == null) return;
 
@@ -262,6 +337,18 @@ class _IngresoMaterialScreenState extends State<IngresoMaterialScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          if (sessionState.puede('despachar'))
+                            SwitchListTile(
+                              title: const Text('Material en tránsito'),
+                              subtitle: const Text('Despacho total y remito automático'),
+                              value: _transito,
+                              onChanged: _procesandoTransito || _datosPendientes != null ? null : (v) => setState(() { _transito = v; _ubicacion = null; }),
+                            ),
+                          if (_transito) ...[
+                            TextFormField(controller: _destinoTransito, decoration: const InputDecoration(labelText: 'Destino final / obra / equipo *', border: OutlineInputBorder()), validator: (v) => (v ?? '').trim().isEmpty ? 'Indique el destino' : null),
+                            const SizedBox(height: 12),
+                            const Text('Ubicación automática: TRANSITO. Variación de stock: 0.'),
+                          ],
                           const Text(
                             'Destino del ingreso',
                             style: TextStyle(
@@ -306,7 +393,7 @@ class _IngresoMaterialScreenState extends State<IngresoMaterialScreen> {
                                   },
                                 ),
                               ),
-                              _campo(
+                              if (!_transito) _campo(
                                 width: 390,
                                 child: DropdownButtonFormField<Ubicacion>(
                                   isExpanded: true,
@@ -345,7 +432,7 @@ class _IngresoMaterialScreenState extends State<IngresoMaterialScreen> {
                               ),
                             ],
                           ),
-                          if (_almacen != null && ubicaciones.isEmpty) ...[
+                          if (!_transito && _almacen != null && ubicaciones.isEmpty) ...[
                             const SizedBox(height: 10),
                             Text(
                               'El almacén seleccionado no tiene ubicaciones activas.',
@@ -600,10 +687,10 @@ class _IngresoMaterialScreenState extends State<IngresoMaterialScreen> {
                           Align(
                             alignment: Alignment.centerRight,
                             child: FilledButton.icon(
-                              onPressed: appState.registrandoRecepcion
+                              onPressed: (appState.registrandoRecepcion || _procesandoTransito)
                                   ? null
                                   : _registrar,
-                              icon: appState.registrandoRecepcion
+                              icon: (appState.registrandoRecepcion || _procesandoTransito)
                                   ? const SizedBox(
                                       width: 18,
                                       height: 18,
@@ -613,9 +700,9 @@ class _IngresoMaterialScreenState extends State<IngresoMaterialScreen> {
                                     )
                                   : const Icon(Icons.save),
                               label: Text(
-                                appState.registrandoRecepcion
+                                (appState.registrandoRecepcion || _procesandoTransito)
                                     ? 'Registrando...'
-                                    : 'Registrar recepción',
+                                    : (_transito ? (_datosPendientes != null ? 'Reintentar tránsito pendiente' : 'Registrar recepción y despacho') : 'Registrar recepción'),
                               ),
                             ),
                           ),

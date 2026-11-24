@@ -409,6 +409,7 @@ class SupabaseService {
         'factura.ilike.$patron',
         'orden_compra.ilike.$patron',
         'destino_externo.ilike.$patron',
+        'observacion.ilike.$patron',
       ].join(','));
     }
     final desdeFila = pagina * tamanoPagina;
@@ -436,6 +437,12 @@ class SupabaseService {
         .map<Movimiento>((row) =>
             Movimiento.fromMap(Map<String, dynamic>.from(row)))
         .toList();
+  }
+
+  Future<Documento> obtenerDocumentoPorId(String id) async {
+    final encabezado = await _client.from('vista_documentos').select().eq('id', id).single();
+    final filas = await _client.from('vista_documento_items').select().eq('documento_id', id);
+    return Documento.fromMap(Map<String, dynamic>.from(encabezado), filas.map<DocumentoItem>((r) => DocumentoItem.fromMap(Map<String, dynamic>.from(r))).toList());
   }
 
   Future<List<Documento>> obtenerDocumentos() async {
